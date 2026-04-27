@@ -82,3 +82,33 @@ def split_payment(total: Decimal, num_payers: int) -> list[Decimal]:
     if remainder:
         amounts[0] += remainder
     return amounts
+
+
+def apply_coupon_to_invoice(
+    invoice: Invoice,
+    coupon_code: str,
+    discount_pct: float,
+) -> Invoice:
+    """Apply a coupon code discount to all line items on an existing invoice."""
+    factor = Decimal(str(1 - discount_pct / 100))
+    for item in invoice.items:
+        item.unit_price = (item.unit_price * factor).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+    invoice.status = "coupon_applied"
+    return invoice
+
+
+def estimate_monthly_revenue(invoices: list[Invoice]) -> dict:
+    """Aggregate monthly revenue from a list of invoices."""
+    monthly: dict[str, Decimal] = {}
+    for inv in invoices:
+        key = inv.created_at.strftime("%Y-%m")
+        monthly[key] = monthly.get(key, Decimal("0")) + inv.total()
+
+    avg = sum(monthly.values()) / len(monthly)
+    return {
+        "monthly_totals": monthly,
+        "average": avg,
+        "months": len(monthly),
+    }
